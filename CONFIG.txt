@@ -1,0 +1,10 @@
+epicsEnvSet("SERIAL_NUMBER", "00")
+epicsEnvSet("MODULE_ID", "6")
+epicsEnvSet("BROADCAST", "127.0.0.1")
+epicsEnvSet("PREFIX", "Sydor_")
+epicsEnvSet("RECORD", "BPM-EM2")
+
+
+*******************************************************************************
+epicsEnvSet("CSSPATH", "/usr/local/cs-studio")
+epicsEnvSet("CSSEXEC", "cs-studio")
