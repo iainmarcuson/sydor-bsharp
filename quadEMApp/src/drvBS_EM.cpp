@@ -142,7 +142,7 @@ drvBS_EM::drvBS_EM(const char *portName, const char *broadcastAddress, int modul
       }
     else
       {
-	printf("Configured command port successfully.\n");
+        printf("Configured command port successfully.\n");
 	fflush(stdout);
       }
     status = pasynOctetSyncIO->connect(tcpCommandPortName_, 0, &pasynUserTCPCommand_, NULL);
@@ -154,18 +154,18 @@ drvBS_EM::drvBS_EM(const char *portName, const char *broadcastAddress, int modul
       }
     else
       {
-	printf("Connected command port Addr: %s.\n",tempString);
+        printf("Connected command port Addr: %s.\n",tempString);
 	fflush(stdout);
       }
     //status = pasynCommonSyncIO->connect(tcpCommandPortName_, 0, &pasynUserTCPCommandConnect_, NULL);
     epicsThreadSleep(1.0);
-    printf("Completed sleep.\n");
+    //printf("Completed sleep.\n");
     fflush(stdout);
 
     //Connect data port
     strcpy(tempString, broadcastAddress_);
     strcat(tempString, ":13002");
-    printf("Data address is: %s\n", tempString);
+    //printf("Data address is: %s\n", tempString);
     status = (asynStatus) drvAsynIPPortConfigure(tcpDataPortName_, tempString, 0, 0, 0);
     status = pasynOctetSyncIO->connect(tcpDataPortName_, 0, &pasynUserTCPData_, NULL);
     if (status)
@@ -409,8 +409,8 @@ void drvBS_EM::process_reg(int reg_lookup, double value)
       epicsSnprintf(outString_, sizeof(outString_), "rr %d?\r\n", curr_item.reg_num);
       writeReadMeter();
       sscanf(inString_, "%[^\n]", response_string);
-      printf("Multi-bit response string reg %d, length %i:\n%s\n", curr_item.reg_num, (int) strlen(response_string), response_string);
-      fflush(stdout);
+      //printf("Multi-bit response string reg %d, length %i:\n%s\n", curr_item.reg_num, (int) strlen(response_string), response_string);
+      //fflush(stdout);
       
       delim_find = strstr(inString_, ">");
       if (delim_find == NULL)	// TODO Handle this better
@@ -471,8 +471,8 @@ asynStatus drvBS_EM::writeReadMeter()
   static const char *functionName="writeReadMeter";
 
   ///XXX Debugging
-  printf("Starting writeReadMeter.\n");
-  fflush(stdout);
+  //printf("Starting writeReadMeter.\n");
+  //fflush(stdout);
 
   // The meter has a strange behavior.  Commands that take no arguments succeed on the first write/read
   // but commands that take arguments fail on the first write read, must do it again.
@@ -496,8 +496,8 @@ asynStatus drvBS_EM::writeReadMeter()
   ///XXX
   ///pasynCommonSyncIO->disconnectDevice(pasynUserTCPCommandConnect_);
   
-  printf("Finishhhhed             writeReadMer.\n");;;;;;;
-  fflush(stdout);
+  //printf("Finishhhhed             writeReadMer.\n");;;;;;;
+  //fflush(stdout);
 
   return status;
 }
@@ -547,7 +547,7 @@ void drvBS_EM::readThread(void)
     curr_minutes = curr_time/60;
     rate_log_file = fopen(rate_log_filename, "a");
     recv_count = 0;
-    printf("Invoked readThread()\n");
+    //printf("Invoked readThread()\n");
 #endif
 
     /* Create an asynUser */
@@ -721,7 +721,7 @@ asynStatus drvBS_EM::writeInt32(asynUser *pasynUser, epicsInt32 value)
   // Fetch the parameter string name
   getParamName(function, &paramName);
 
-  printf("In writeInt32()\n");
+  //printf("In writeInt32()\n");
 
   reg_lookup = -1;
   if (function == P_FdbkEnable)
@@ -757,10 +757,10 @@ asynStatus drvBS_EM::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
   if (function < P_FdbkEnable)	// Assume function not a BSharp one
     {
-      printf("writeINt falling through.\n");
-      if (function == P_Acquire)
+        //printf("writeINt falling through.\n");
+      if (function == ADAcquire)
 	{
-	  printf("writing an acquire in fallthrough\n");
+            //printf("writing an acquire in fallthrough\n");
 	}
       fflush(stdout);
       drvQuadEM::writeInt32(pasynUser, value);
@@ -906,8 +906,8 @@ asynStatus drvBS_EM::setMode()
 
     getIntegerParam(P_PingPong, &pingPong);
     getIntegerParam(P_ValuesPerRead, &valuesPerRead);
-    getIntegerParam(P_Acquire, &acquire);
-    mode = P_Acquire ? 0 : 1;
+    getIntegerParam(ADAcquire, &acquire);
+    mode = ADAcquire ? 0 : 1;
     // The phase information is only valid when ValuesPerRead=1.  Set to PhaseBoth if !=1.
     if ((valuesPerRead != 1) && (pingPong != PhaseBoth)) {
         pingPong = PhaseBoth;
@@ -1047,8 +1047,8 @@ asynStatus drvBS_EM::readStatus()
     setIntegerParam(P_ValuesPerRead, valuesPerRead);
     getDoubleParam(P_IntegrationTime, &period);
     ///
-    printf("Integration time %f.\n", period);
-    fflush(stdout);
+    //printf("Integration time %f.\n", period);
+    //fflush(stdout);
     setDoubleParam(P_IntegrationTime, period);
     sampleTime = period*valuesPerRead;
     getIntegerParam(P_PingPong, &pingPong);
@@ -1060,7 +1060,7 @@ asynStatus drvBS_EM::readStatus()
     numAverage = (int)((averagingTime / sampleTime) + 0.5);
     setIntegerParam(P_NumAverage, numAverage);
     ///
-    printf("Number averaging: %i.\n", numAverage);
+    //printf("Number averaging: %i.\n", numAverage);
     return asynSuccess;
 }
 
