@@ -583,8 +583,26 @@ void drvBS_EM::readThread(void)
         }
         unlock();
         pasynManager->lockPort(pasynUser);
-//Read header
-	status = pasynOctet->read(octetPvt, pasynUser, ASCIIData, 4, &nRead, &eomReason);
+
+        //Read header
+        status = pasynOctet->read(octetPvt, pasynUser, ASCIIData, 4, &nRead, &eomReason);
+            
+        if ((status != asynSuccess) || (nRead != 4)
+            || (ASCIIData[0] != 'B') || (ASCIIData[1] != 1)) // Make sure we read a valid header
+        {
+            if (nRead != 0)
+            {
+#ifdef RATE_BENCHMARK
+                packet_err_count++;
+#endif RATE_BENCHMARK
+                printf("readThread: Error: NumRead: %i, first byte=%hhx, all bytes %hhx,%hhx,%hhx,%hhx\n", (int) nRead, ASCIIData[0], ASCIIData[0], ASCIIData[1], ASCIIData[2], ASCIIData[3]); 
+                pasynOctet->flush(octetPvt, pasynUser);
+            }
+            pasynManager->unlockPort(pasynUser);
+            lock();
+            continue;		// Try again next packet
+        }
+                            
 	nRequested = ntohs(*(unsigned short *)(&ASCIIData[2]));
 	num_words = (nRequested-1)/4; // Subtract 1-byte checksum
 	num_data = (nRequested-13)/4; //12-byte header plus 1-byte checksum
@@ -593,24 +611,20 @@ void drvBS_EM::readThread(void)
 #endif
 
 	total_read = 0;
-	///printf("readThread: NumRead=%d, first byte=%hhx, NumBytes=%d.\n",
-	///       nRead, ASCIIData[0], nRequested);
+	printf("readThread: NumRead=%d, first byte=%hhx, NumBytes=%d.\n",
+	       nRead, ASCIIData[0], nRequested);
 	fflush(stdout);
-	//Check for valid data
-	if ((ASCIIData[0] != 'B') || (ASCIIData[1] != 1))
+
+        while(total_read < (8)) // Error in DBPM Viewer, so skip only eight bytes
 	  {
-#ifdef RATE_BENCHMARK
-            packet_err_count++;
-	    if ((packet_err_count % 30) == 0)
-	      {
-		///printf("%hhu, %hhu, %hhu, %hhu\n", ASCIIData[0], ASCIIData[1], ASCIIData[2], ASCIIData[3]);
-	      }
-#endif RATE_BENCHMARK
-	    pasynOctet->flush(octetPvt, pasynUser);
-	    pasynManager->unlockPort(pasynUser);
-	    lock();
-	    continue;		// Try again next packet
+	    status = pasynOctet->read(octetPvt, pasynUser, &(ASCIIData[total_read]), 8-total_read, &nRead, &eomReason);
+	    total_read += nRead;
 	  }
+
+        
+        total_read = 0; // Reset the count
+        nRequested = nRequested - 12;  // We don't actually send the header, and we have read all of the preamble.
+        printf("Want to read %i bytes in bulk\n", (int) nRequested);
 	///XXX TODO Note that the checksum is not currently transmitted, so the +1 that should be there has been turne into a +0 for now
 	while(total_read < (nRequested+0))
 	  {
@@ -618,6 +632,13 @@ void drvBS_EM::readThread(void)
 	    total_read += nRead;
 	  }
 
+        printf("Final 16 bytes: ");
+        for (uint32_t byte_idx = 0; byte_idx < 16; byte_idx++)
+        {
+            printf("%hhx, ", ASCIIData[total_read-16+byte_idx]);
+        }
+        printf("\n");
+        
 #ifdef RATE_BENCHMARK
 	recv_count++;
 	total_bytes += nRead;
@@ -625,8 +646,8 @@ void drvBS_EM::readThread(void)
 	curr_minutes = curr_time/60;
 	if ((recv_count % 100) == 0)
 	  {
-	    //printf("Requested %lu bytes, received %lu bytes.\n", nRequested+0, total_read);
-	    //printf("Final byte is %hhx\n", ASCIIData[total_read-1]);
+	    printf("Requested %lu bytes, received %lu bytes.\n", nRequested+0, total_read);
+	    printf("Final byte is %hhx\n", ASCIIData[total_read-1]);
 	  }
   //printf("Recevied 100 packets, time %i, current %i, old %i\n", curr_time, curr_minutes, old_minutes);
   //fflush(stdout);
