@@ -595,7 +595,7 @@ void drvBS_EM::readThread(void)
 #ifdef RATE_BENCHMARK
                 packet_err_count++;
 #endif RATE_BENCHMARK
-                printf("readThread: Error: NumRead: %i, first byte=%hhx, all bytes %hhx,%hhx,%hhx,%hhx\n", (int) nRead, ASCIIData[0], ASCIIData[0], ASCIIData[1], ASCIIData[2], ASCIIData[3]); 
+                //printf("readThread: Error: NumRead: %i, first byte=%hhx, all bytes %hhx,%hhx,%hhx,%hhx\n", (int) nRead, ASCIIData[0], ASCIIData[0], ASCIIData[1], ASCIIData[2], ASCIIData[3]); 
                 pasynOctet->flush(octetPvt, pasynUser);
             }
             pasynManager->unlockPort(pasynUser);
@@ -611,9 +611,9 @@ void drvBS_EM::readThread(void)
 #endif
 
 	total_read = 0;
-	printf("readThread: NumRead=%d, first byte=%hhx, NumBytes=%d.\n",
-	       nRead, ASCIIData[0], nRequested);
-	fflush(stdout);
+	//printf("readThread: NumRead=%d, first byte=%hhx, NumBytes=%d.\n",
+        //	       nRead, ASCIIData[0], nRequested);
+    //fflush(stdout);
 
         while(total_read < (8)) // Error in DBPM Viewer, so skip only eight bytes
 	  {
@@ -624,7 +624,7 @@ void drvBS_EM::readThread(void)
         
         total_read = 0; // Reset the count
         nRequested = nRequested - 12;  // We don't actually send the header, and we have read all of the preamble.
-        printf("Want to read %i bytes in bulk\n", (int) nRequested);
+        //printf("Want to read %i bytes in bulk\n", (int) nRequested);
 	///XXX TODO Note that the checksum is not currently transmitted, so the +1 that should be there has been turne into a +0 for now
 	while(total_read < (nRequested+0))
 	  {
@@ -632,12 +632,14 @@ void drvBS_EM::readThread(void)
 	    total_read += nRead;
 	  }
 
+        /*
         printf("Final 16 bytes: ");
         for (uint32_t byte_idx = 0; byte_idx < 16; byte_idx++)
         {
             printf("%hhx, ", ASCIIData[total_read-16+byte_idx]);
         }
         printf("\n");
+        */
         
 #ifdef RATE_BENCHMARK
 	recv_count++;
@@ -710,17 +712,18 @@ void drvBS_EM::readThread(void)
 		(pingPong == PhaseBoth)) {
 	      for (i=0; i<4; i++) {
 		//12 bytes offset of payload, so 3 ints
-		data[i] = raw_to_current(data_int[j*4+i+3]);
+		data[i] = raw_to_current(data_int[j*4+i]);
 		///TODO Add in calibration
 		data[i] = data[i] - (cal_offset_[i]*1e-9);
 		data[i] = data[i]/cal_slope_[i];
 	      }      
 	      ///
 	      ///printf("Computing positions.\n");
-	      fflush(stdout);
+              ///fflush(stdout);
 	      computePositions(data);
 	    }
 	  }
+        callParamCallbacks();
     }
 }
 
