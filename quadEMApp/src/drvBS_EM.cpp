@@ -615,15 +615,29 @@ void drvBS_EM::readThread(void)
         //	       nRead, ASCIIData[0], nRequested);
     //fflush(stdout);
 
+        /*
         while(total_read < (8)) // Error in DBPM Viewer, so skip only eight bytes
 	  {
 	    status = pasynOctet->read(octetPvt, pasynUser, &(ASCIIData[total_read]), 8-total_read, &nRead, &eomReason);
 	    total_read += nRead;
 	  }
-
+        */
+        
         
         total_read = 0; // Reset the count
-        nRequested = nRequested - 12;  // We don't actually send the header, and we have read all of the preamble.
+
+        // We will need the header, so get that out of the way.
+        {
+            size_t header_bytes_requested = 12;
+            while(total_read < (header_bytes_requested))
+            {
+                status = pasynOctet->read(octetPvt, pasynUser, &(ASCIIData[total_read]), header_bytes_requested-total_read, &nRead, &eomReason);
+                total_read += nRead;
+            }
+        }
+
+        total_read = 0;
+        nRequested = nRequested - 12;  // We just read the header, and we have read all of the preamble.
         //printf("Want to read %i bytes in bulk\n", (int) nRequested);
 	///XXX TODO Note that the checksum is not currently transmitted, so the +1 that should be there has been turne into a +0 for now
 	while(total_read < (nRequested+0))
