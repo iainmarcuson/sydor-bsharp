@@ -36,3 +36,9 @@ Startup Scenario
    2. Put the correct calibrations in file `calibration.ini` e.g. `cp calibration_attenuator.ini calibration.ini`  The calibration file format is described in `<quadEM directory>/docs/bsharp_cal_file_format.md`
    3. Edit the parameters in `../../CONFIG.txt`.  **PREFIX** and **RECORD** are set according to your site.  **BROADCAST** needs to point to the IP address of the computer running the socket splitter; "127.0.0.1" if the socket splitter is running on the same computer as EPICS.
    4. `./st.cmd` to start EPICS.
+
+Shutdown Scenario
+-----------------
+
+1. Exit EPICS.
+2. Ctrl-C on the `python3 socket_split_queue.py` process.
