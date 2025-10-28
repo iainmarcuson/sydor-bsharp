@@ -34,15 +34,15 @@ select_timeout = DEFAULT_SELECT;
 
 def buffer_search_packets(in_bytes):
     search_bytes = b'>B\x01';
-    last_found_idx = -1
+    last_found_idx = 0
     read_length = 0
     checksum_byte = 0
     while True:
-        curr_found_idx = in_bytes[last_found_idx+1:].find(search_bytes);
+        curr_found_idx = in_bytes.find(search_bytes, last_found_idx+1);
         if curr_found_idx == -1:  # No more occurrences
             return
-        curr_bytes = in_bytes[last_found_idx+1+curr_found_idx:]
-        last_found_indx = curr_found_idx
+        curr_bytes = in_bytes[curr_found_idx:]
+        last_found_idx = curr_found_idx
         print("Candidate found at: {}\n{}".format(curr_found_idx, curr_bytes[0:5]))
         curr_bytes = curr_bytes[len(search_bytes):] # Consume the main string
         print(curr_bytes[0:2])
@@ -146,6 +146,7 @@ def bsharp_all_recv(in_bytes):
             pass;               # A valid command
         else:                   # Erroneos data, so flush
             desync_packets = desync_packets+1; # Note a desynchronization
+            print("Desychronization count: {}".format(desync_packets))
             return (RECV_FLUSH, b'');
         cmd_end = in_bytes.find(b'\r\n'); 
 
@@ -365,6 +366,7 @@ try:
             if read_status == RECV_PARTIAL:
                 pass;           # Nothing to do here
             elif read_status == RECV_FLUSH:
+                print("Flushing packet")
                 buffer_search_packets(from_bsharp_socket)
                 from_bsharp_socket = b''; # Need to flush the data
                 FIFO_DIRTY = False;       # No need to print and empty FIFO
