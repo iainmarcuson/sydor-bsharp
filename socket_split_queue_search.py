@@ -7,7 +7,7 @@ import time
 import struct
 
 BSHARP_ADDR = '127.0.0.1';
-BSHARP_ADDR  = '192.168.11.166';
+#BSHARP_ADDR  = '192.168.11.166';
 
 packet_count = 0;
 CMD_LEN = 32;                  # Maximum length of command to try to filter out.  Actual max for a command is 25, but add a litle padding.
@@ -68,8 +68,6 @@ def bsharp_all_recv(in_bytes):
     log_len_inbytes = len(in_bytes)
     #YF]
 
-    buffer_search_packets(in_bytes)
-    
     if in_bytes.find(b'bb') == 0: # Data
         #print("bb size:  {}".format(len(in_bytes)));
         delimit_idx = in_bytes.find(b'\x01');
@@ -367,6 +365,7 @@ try:
             if read_status == RECV_PARTIAL:
                 pass;           # Nothing to do here
             elif read_status == RECV_FLUSH:
+                buffer_search_packets(from_bsharp_socket)
                 from_bsharp_socket = b''; # Need to flush the data
                 FIFO_DIRTY = False;       # No need to print and empty FIFO
                 select_timeout = 0.001;   # If packets are too rapid, clear quickly

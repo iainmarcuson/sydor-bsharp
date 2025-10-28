@@ -5,7 +5,7 @@ import os
 import traceback
 import time
 
-BSHARP_ADDR = '192.168.11.166';
+BSHARP_ADDR = '127.0.0.1';
 
 packet_count = 0;
 CMD_LEN = 32;                  # Maximum length of command to try to filter out.  Actual max for a command is 25, but add a litle padding.
@@ -321,7 +321,7 @@ try:
                 # XXX FIXME This is to flush the buffer if we get out of sync.
                 # The number should probably change.
                 if ALLOW_FLUSH:
-                    if (len(from_bsharp_socket)) > (440*2+32): # Two data transmissions plus a command
+                    if (len(from_bsharp_socket)) > (440*2000+32): # Two data transmissions plus a command
                         from_bsharp_socket = b'';
                         FLUSH = True;
                         FIFO_DIRTY = True;
