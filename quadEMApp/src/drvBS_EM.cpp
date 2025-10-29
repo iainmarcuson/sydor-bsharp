@@ -977,6 +977,10 @@ asynStatus drvBS_EM::setIntegrationTime(epicsFloat64 value)
     epicsSnprintf(outString_, sizeof(outString_), "wr 2 %d\r\n", time_scale_num);
     status = writeReadMeter();
     computeScaleFactor();
+
+    epicsSnprintf(outString_, sizeof(outString_), "bc 152 2\r\n");
+    status = writeReadMeter();
+    
     return status;
 }
 
