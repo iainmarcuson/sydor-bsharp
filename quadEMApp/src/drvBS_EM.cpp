@@ -783,7 +783,7 @@ void drvBS_EM::readThread(void)
                   ((phase == 1) && (pingPong == Phase1)) ||
                   (pingPong == PhaseBoth)) {
                   for (i=0; i<4; i++) {
-                      if (data_int[j*4+i] > (MAX_RAW * CLIP_PCT)) // Raw value greater than threshold
+                      if (*((signed int *)&data_int[j*4+i]) > (MAX_RAW * CLIP_PCT)) // Raw value greater than threshold
                       {
                           sticky_clip = sticky_clip | (1<<i); // Set that bit
                       }
@@ -794,7 +794,7 @@ void drvBS_EM::readThread(void)
                       data[i] = data[i]/cal_slope_[i];
                       if (b_raw_scale)
                       {
-                          data[i] = data_int[j*4+i]; // Just copy the raw value
+                          data[i] = *((signed int *) &data_int[j*4+i]); // Just copy the raw value
                           if (j == 0)
                           {
                               /*
