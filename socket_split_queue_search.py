@@ -7,7 +7,7 @@ import time
 import struct
 
 BSHARP_ADDR = '127.0.0.1';
-#BSHARP_ADDR  = '192.168.11.166';
+BSHARP_ADDR  = '192.168.11.166';
 
 packet_count = 0;
 CMD_LEN = 32;                  # Maximum length of command to try to filter out.  Actual max for a command is 25, but add a litle padding.
@@ -231,18 +231,20 @@ data_out_count = 0;
 curr_minutes = int(time.time()/60);
 old_minutes = int(time.time()/60);
 
-bsharp_sock.send(b'bs 0 4\r\n');
+bsharp_sock.send(b'bs 0 4\n');
 go_return = bsharp_sock.recv(1024);
 #print("Go command reported: {}".format(go_return.decode()));
-bsharp_sock.send(b'wr 154 0\r\n');
+bsharp_sock.send(b'wr 154 0\n');
 go_return = bsharp_sock.recv(1024);
-bsharp_sock.send(b'bc 152 2\r\n');
+bsharp_sock.send(b'bc 152 2\n');
 go_return = bsharp_sock.recv(1024);
 ### Not actually a function bsharp_sock.flush();
 #go_return = bsharp_sock.recv(1024);
 #print("Reg 1 is :{}".format(go_return.decode()));
-
+outgoing_list = []
 # Time to start the main loop
+cmd_send_time = time.time()
+CMD_SPACING = 0
 try:
     from_bsharp_socket = b'';   # Start with an empty "FIFO"
     FIFO_DIRTY = False;         # FIFO is initially clean
@@ -273,7 +275,8 @@ try:
         if len(read_list) == 0:
             if FLUSH:
                 FLUSH = False
-                bsharp_sock.send(b'bc 152 2\r\n');   # RE-START  Transmitting
+                print("Resume broadcast.")
+                bsharp_sock.send(b'bc 152 2\n');   # RE-START  Transmitting
 
         ## YF]
 
@@ -328,9 +331,21 @@ try:
                 cmd_read_data = cmd_client_sock.recv(1024); 
                 cmd_get_time = time.monotonic();
                 print("Received command: {}".format(cmd_read_data.decode()));
-                bsharp_sock.send(cmd_read_data);
+                if b"\r" in cmd_read_data:
+                    print("CR in output data.\n");
+                outgoing_list.append(cmd_read_data);
+                ##bsharp_sock.send(cmd_read_data);
                 # Do nothing 
-            
+
+            if len(outgoing_list) > 0:
+                curr_time = time.time()
+                if (curr_time - cmd_send_time) > CMD_SPACING:
+                    CMD_SPACING = 5
+                    curr_data = outgoing_list.pop(0);
+                    bsharp_sock.send(cmd_read_data);
+                    cmd_send_time = curr_time
+                
+                
             if curr_readable == bsharp_sock:
 
                 if FLUSH:
@@ -355,7 +370,7 @@ try:
                         ## YF[
                         select_timeout = 0.001;   # If packets are too rapid, clear quickly
                         print("Set Broadcast off")
-                        bsharp_sock.send(b'bs 152 2\r\n');   # STOP Transmitting - Turn off Broadcast mode
+                        bsharp_sock.send(b'bs 152 2\n');   # STOP Transmitting - Turn off Broadcast mode
                         continue
 
                 ## YF]
