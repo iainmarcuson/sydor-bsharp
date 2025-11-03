@@ -35,6 +35,8 @@
 #define NSLS_EM_TIMEOUT   0.2
 #define BS_EM_CMD_TIMEOUT 7.5
 
+#define BOND_MAX_I 0.005 // Maximum bond wire current
+
 #define COMMAND_PORT    4747
 #define DATA_PORT       5757
 #define BROADCAST_PORT 37747
@@ -792,6 +794,11 @@ void drvBS_EM::readThread(void)
                       ///TODO Add in calibration
                       data[i] = data[i] - (cal_offset_[i]*1e-9);
                       data[i] = data[i]/cal_slope_[i];
+
+                      if (data[i] > (0.9 * BOND_MAX_I)) // If current is too high, the bond wires will melt, even if the ADC is not close to saturating
+                      {
+                          sticky_clip = sticky_clip | (1<<i);
+                      }
                       if (b_raw_scale)
                       {
                           data[i] = *((signed int *) &data_int[j*4+i]); // Just copy the raw value
