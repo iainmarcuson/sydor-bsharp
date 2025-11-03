@@ -498,24 +498,43 @@ asynStatus drvBS_EM::writeReadMeter()
           int argsRead;
           int regNum;
           int regVal;
+          int bValidNotFound = 1;
 
-          printf("Received string: %s\n", tempString);
+          //printf("Received string: %s\n", tempString);
           argsRead = sscanf(tempString, "rr %i>%i:OK", &regNum, &regVal);
-          if (argsRead == 2) // 
+          if (bValidNotFound && (argsRead == 2)) // 
           {
               setIntegerParam(P_RegNum, regNum);
               setIntegerParam(P_RegVal, regVal);
+              bValidNotFound = 0;
           }
-          else
+
+          argsRead = sscanf(tempString, "wr %i %i>:OK", &regNum, &regVal);
+          if (bValidNotFound && (argsRead == 2))
           {
-              argsRead = sscanf(tempString, "wr %i %i>:OK", &regNum, &regVal);
-              if (argsRead == 2)
-              {
-                  setIntegerParam(P_RegNum, regNum);
-                  setIntegerParam(P_RegVal, regVal);
-              }
-              // Can stop here, since other response are likely bs or bc
+              setIntegerParam(P_RegNum, regNum);
+              setIntegerParam(P_RegVal, regVal);
+              bValidNotFound = 0;
           }
+
+          argsRead = sscanf(tempString, "bs %i %i>:OK", &regNum, &regVal);
+          if (bValidNotFound && (argsRead == 2))
+          {
+              bValidNotFound = 0; // No PVs to update, but note we found a response
+          }
+
+          argsRead = sscanf(tempString, "bc %i %i>:OK", &regNum, &regVal);
+          if (bValidNotFound && (argsRead == 2))
+          {
+              bValidNotFound = 0; // No PVs to update, but note we found a response
+          }
+
+          if (bValidNotFound)
+          {
+              asynPrint(pasynUserSelf, ASYN_TRACE_ERROR,
+                        "%s:%s: error calling writeRead, outString=%s status=%d, nread=%d, eomReason=%d, inString=%s\n",
+                        driverName, functionName, outString_, status, (int)nread, eomReason, inString_);
+          }             
       }
   }
   else if (status) {
