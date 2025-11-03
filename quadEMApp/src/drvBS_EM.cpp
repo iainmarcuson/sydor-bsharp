@@ -32,7 +32,8 @@
 #include "drvBS_EM.h"
 
 #define BROADCAST_TIMEOUT 0.2
-#define NSLS_EM_TIMEOUT   0.1
+#define NSLS_EM_TIMEOUT   0.2
+#define BS_EM_CMD_TIMEOUT 7.5
 
 #define COMMAND_PORT    4747
 #define DATA_PORT       5757
@@ -133,7 +134,7 @@ drvBS_EM::drvBS_EM(const char *portName, const char *broadcastAddress, int modul
     strcat(tempString, ":13001");
     //XXX Add error checking
     //Connect command port
-    status = (asynStatus)drvAsynIPPortConfigure(tcpCommandPortName_, tempString, 0, 0, 0);
+    status = (asynStatus)drvAsynIPPortConfigure(tcpCommandPortName_, tempString, 0, 0, 1);
     if (status)
       {
 	asynPrint(pasynUserSelf, ASYN_TRACE_ERROR,
@@ -239,6 +240,13 @@ drvBS_EM::drvBS_EM(const char *portName, const char *broadcastAddress, int modul
     createParam(P_PIDIVString, asynParamFloat64, &P_Fdbk_I2VScale);
     createParam(P_PIDExtTrigString, asynParamInt32, &P_Fdbk_ExtTrig);
     createParam(P_PIDInhibitString, asynParamInt32, &P_Fdbk_PIDInhibit);
+
+    createParam(P_RawScaleString, asynParamInt32, &P_RawScale);
+    createParam(P_ClippingString, asynParamInt32, &P_Clipping);
+    createParam(P_RegNumString, asynParamInt32, &P_RegNum);
+    createParam(P_RegValString, asynParamInt32, &P_RegVal);
+    createParam(P_RegSetString, asynParamInt32, &P_RegSet);
+    
     //Set the PID register parameters
     /*pidRegData_ = {
       {param_reg, 200, 0xFFFFFFFF, reg_int, 0.0, 1.0, 0, 10000}, //Setpoint
@@ -273,7 +281,7 @@ drvBS_EM::drvBS_EM(const char *portName, const char *broadcastAddress, int modul
     ///Parameters to set
     setIntegerParam(P_Range, 0);
     setIntegerParam(P_ValuesPerRead, 5);
-    setDoubleParam(P_IntegrationTime, 10e-6);
+    setDoubleParam(P_IntegrationTime, 880e-6);
     setDoubleParam(P_SampleTime, 20e-6);
     setIntegerParam(P_NumAverage, 25);
 
@@ -406,7 +414,7 @@ void drvBS_EM::process_reg(int reg_lookup, double value)
       char response_string[256];
       
       //First, read in the value
-      epicsSnprintf(outString_, sizeof(outString_), "rr %d?\r\n", curr_item.reg_num);
+      epicsSnprintf(outString_, sizeof(outString_), "rr %d\n", curr_item.reg_num);
       writeReadMeter();
       sscanf(inString_, "%[^\n]", response_string);
       //printf("Multi-bit response string reg %d, length %i:\n%s\n", curr_item.reg_num, (int) strlen(response_string), response_string);
@@ -415,7 +423,7 @@ void drvBS_EM::process_reg(int reg_lookup, double value)
       delim_find = strstr(inString_, ">");
       if (delim_find == NULL)	// TODO Handle this better
 	{
-	  epicsSnprintf(outString_, sizeof(outString_), "rr 1?\r\n"); // Put in a harmless command
+	  epicsSnprintf(outString_, sizeof(outString_), "rr 1\n"); // Put in a harmless command
 	  printf("Failed to get response from hardware.\n");
 	  fflush(stdout);
 	  return;
@@ -424,7 +432,7 @@ void drvBS_EM::process_reg(int reg_lookup, double value)
       sscanf(&(delim_find[1]), "%i", &reg_start_value); // Start after the delimiter
       reg_start_value = reg_start_value & ~curr_item.bit_mask; // Mask out the bits to manipulate
       reg_start_value = reg_start_value | (unsigned int) value; // Or in the new value from the Db file
-      epicsSnprintf(outString_, sizeof(outString_), "wr %d %i\r\n", curr_item.reg_num, reg_start_value);
+      epicsSnprintf(outString_, sizeof(outString_), "wr %d %i\n", curr_item.reg_num, reg_start_value);
       return;
     }
 
@@ -435,12 +443,12 @@ void drvBS_EM::process_reg(int reg_lookup, double value)
       bitmask = curr_item.bit_mask;
       if (value)
 	{
-	  epicsSnprintf(outString_, sizeof(outString_), "bs %i %u\r\n", curr_item.reg_num, bitmask);
+	  epicsSnprintf(outString_, sizeof(outString_), "bs %i %u\n", curr_item.reg_num, bitmask);
 	  return;
 	}
       else
 	{
-	  epicsSnprintf(outString_, sizeof(outString_), "bc %i %u\r\n", curr_item.reg_num, bitmask);
+	  epicsSnprintf(outString_, sizeof(outString_), "bc %i %u\n", curr_item.reg_num, bitmask);
 	  return;
 	}
     }
@@ -450,7 +458,7 @@ void drvBS_EM::process_reg(int reg_lookup, double value)
     {
       int out_val;
       out_val = curr_item.out_min.out_int + t*(curr_item.out_max.out_int-curr_item.out_min.out_int);
-      epicsSnprintf(outString_, sizeof(outString_), "wr %d %d\r\n", curr_item.reg_num, out_val);
+      epicsSnprintf(outString_, sizeof(outString_), "wr %d %d\n", curr_item.reg_num, out_val);
     }
   else
     {
@@ -466,38 +474,56 @@ asynStatus drvBS_EM::writeReadMeter()
   size_t nread;
   size_t nwrite;
   asynStatus status=asynSuccess;
-//  char tempString[16];
+  char tempString[MAX_COMMAND_LEN+1];
   int eomReason;
   static const char *functionName="writeReadMeter";
 
-  ///XXX Debugging
-  //printf("Starting writeReadMeter.\n");
-  //fflush(stdout);
-
-  // The meter has a strange behavior.  Commands that take no arguments succeed on the first write/read
-  // but commands that take arguments fail on the first write read, must do it again.
-  ///XXX
-  ///pasynCommonSyncIO->connectDevice(pasynUserTCPCommandConnect_);
-  
   status = pasynOctetSyncIO->writeRead(pasynUserTCPCommand_, outString_, strlen(outString_), 
-                                          inString_, sizeof(inString_), NSLS_EM_TIMEOUT, 
+                                          inString_, sizeof(inString_), BS_EM_CMD_TIMEOUT, 
                                           &nwrite, &nread, &eomReason);
-  if (status) {
+
+  if (nread > 0) // Got something back, which could be a whole message
+  {
+      memset(tempString, '\0', sizeof(tempString));
+      strncpy(tempString, inString_, nread);
+      if (strstr(tempString, ":OK") == 0) // No OK found in response
+      {
+          asynPrint(pasynUserSelf, ASYN_TRACE_ERROR, 
+          "%s:%s: error, outString=%s expected >:OK, received %s\n",
+          driverName, functionName, outString_, inString_);
+          status = asynError;
+      }
+      else // An OK found in response
+      {
+          int argsRead;
+          int regNum;
+          int regVal;
+
+          printf("Received string: %s\n", tempString);
+          argsRead = sscanf(tempString, "rr %i>%i:OK", &regNum, &regVal);
+          if (argsRead == 2) // 
+          {
+              setIntegerParam(P_RegNum, regNum);
+              setIntegerParam(P_RegVal, regVal);
+          }
+          else
+          {
+              argsRead = sscanf(tempString, "wr %i %i>:OK", &regNum, &regVal);
+              if (argsRead == 2)
+              {
+                  setIntegerParam(P_RegNum, regNum);
+                  setIntegerParam(P_RegVal, regVal);
+              }
+              // Can stop here, since other response are likely bs or bc
+          }
+      }
+  }
+  else if (status) {
       asynPrint(pasynUserSelf, ASYN_TRACE_ERROR, 
           "%s:%s: error calling writeRead, outString=%s status=%d, nread=%d, eomReason=%d, inString=%s\n",
           driverName, functionName, outString_, status, (int)nread, eomReason, inString_);
   }
-  else if (strstr(inString_, ">:OK") == 0) {
-      asynPrint(pasynUserSelf, ASYN_TRACE_ERROR, 
-          "%s:%s: error, outString=%s expected >:OK, received %s\n",
-          driverName, functionName, outString_, inString_);
-      status = asynError;
-  }
-  ///XXX
-  ///pasynCommonSyncIO->disconnectDevice(pasynUserTCPCommandConnect_);
-  
-  //printf("Finishhhhed             writeReadMer.\n");;;;;;;
-  //fflush(stdout);
+  // if nread is 0, then we would receive a timeout error in status
 
   return status;
 }
@@ -513,6 +539,7 @@ void drvBS_EM::readThread(void)
     size_t total_read;
     int eomReason;
     int pingPong;
+    int b_raw_scale;
     int i,j,k;
     asynUser *pasynUser;
     asynInterface *pasynInterface;
@@ -528,9 +555,10 @@ void drvBS_EM::readThread(void)
     unsigned int *data_int = (unsigned int *)ASCIIData;
     static const char *functionName = "readThread";
     int total_num = 0;
+    int sticky_clip = 0;
     ///Benchmarking
 #define RATE_BENCHMARK
-    ///#undef RATE_BENCHMARK
+#undef RATE_BENCHMARK
 #ifdef RATE_BENCHMARK
     const char *rate_log_filename = "ratelog.txt";
     FILE *rate_log_file;
@@ -687,13 +715,24 @@ void drvBS_EM::readThread(void)
 	  }
 #endif
 
-	
         ///printf("readThread: Read %i data bytes.\n", nRead);
 	fflush(stdout);
 	///pasynOctet->flush(octetPvt, pasynUser);
         pasynManager->unlockPort(pasynUser);
         lock();
 
+        // Now that we have a packet, see if we need to give the raw value
+        status = getIntegerParam(P_RawScale, &b_raw_scale);
+        // Reset the clipping variable for each packet
+        sticky_clip = 0;
+        /*
+        printf("Status for reading Raw bool: %i\n", status);
+        if (b_raw_scale)
+        {
+            printf("Raw data enabled.\n");
+        }
+        */
+        
 	if (0){
         if ((status != asynSuccess) || 
             (eomReason != ASYN_EOM_EOS)) {
@@ -721,22 +760,37 @@ void drvBS_EM::readThread(void)
 
 	for (j=0; j<num_data/4; j++)
 	  {
-	    if (((phase == 0) && (pingPong == Phase0)) ||
-		((phase == 1) && (pingPong == Phase1)) ||
-		(pingPong == PhaseBoth)) {
-	      for (i=0; i<4; i++) {
-		//12 bytes offset of payload, so 3 ints
-		data[i] = raw_to_current(data_int[j*4+i]);
-		///TODO Add in calibration
-		data[i] = data[i] - (cal_offset_[i]*1e-9);
-		data[i] = data[i]/cal_slope_[i];
-	      }      
-	      ///
-	      ///printf("Computing positions.\n");
-              ///fflush(stdout);
-	      computePositions(data);
-	    }
+              if (((phase == 0) && (pingPong == Phase0)) ||
+                  ((phase == 1) && (pingPong == Phase1)) ||
+                  (pingPong == PhaseBoth)) {
+                  for (i=0; i<4; i++) {
+                      if (data_int[j*4+i] > (MAX_RAW * CLIP_PCT)) // Raw value greater than threshold
+                      {
+                          sticky_clip = sticky_clip | (1<<i); // Set that bit
+                      }
+                      //12 bytes offset of payload, so 3 ints
+                      data[i] = raw_to_current(data_int[j*4+i]);
+                      ///TODO Add in calibration
+                      data[i] = data[i] - (cal_offset_[i]*1e-9);
+                      data[i] = data[i]/cal_slope_[i];
+                      if (b_raw_scale)
+                      {
+                          data[i] = data_int[j*4+i]; // Just copy the raw value
+                          if (j == 0)
+                          {
+                              /*
+                              printf("Raw: %i %i %i %i\n", data_int[j*4+i], data_int[j*4+i+1], data_int[j*4+i+2], data_int[j*4+i+3]);
+                              */
+                          }
+                      }
+                  }      
+                  ///
+                  ///printf("Computing positions.\n");
+                  ///fflush(stdout);
+                  computePositions(data);
+              }
 	  }
+        setIntegerParam(P_Clipping, sticky_clip);
         callParamCallbacks();
     }
 }
@@ -793,6 +847,20 @@ asynStatus drvBS_EM::writeInt32(asynUser *pasynUser, epicsInt32 value)
       status = writeReadMeter();
     }
 
+  if (function == P_RegNum)
+  {
+      epicsSnprintf(outString_, sizeof(outString_), "rr %i\n", value);
+      status = writeReadMeter();
+  }
+
+  if (function == P_RegSet)
+  {
+      int reg_num;
+      getIntegerParam(P_RegNum, &reg_num);
+      epicsSnprintf(outString_, sizeof(outString_), "wr %i %i\n", reg_num, value);
+      status = writeReadMeter();
+  }
+  
   if (function < P_FdbkEnable)	// Assume function not a BSharp one
     {
         //printf("writeINt falling through.\n");
@@ -895,7 +963,7 @@ asynStatus drvBS_EM::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
   if (reg_lookup >= 0)
     {
       process_reg(reg_lookup, value);	// Get the command string for the register lookup set
-      printf("%s\n", outString_);
+      //printf("%s\n", outString_);
       fflush(stdout);
       status = writeReadMeter();
     }
@@ -972,13 +1040,13 @@ asynStatus drvBS_EM::setIntegrationTime(epicsFloat64 value)
     }
     ///XXX TODO Check return code
     time_scale_num = (value-MIN_INTEGRATION_TIME)/(66.6e-9);
-    epicsSnprintf(outString_, sizeof(outString_), "wr 1 %d\r\n", time_scale_num);
+    epicsSnprintf(outString_, sizeof(outString_), "wr 1 %d\n", time_scale_num);
     status = writeReadMeter();
-    epicsSnprintf(outString_, sizeof(outString_), "wr 2 %d\r\n", time_scale_num);
+    epicsSnprintf(outString_, sizeof(outString_), "wr 2 %d\n", time_scale_num);
     status = writeReadMeter();
     computeScaleFactor();
 
-    epicsSnprintf(outString_, sizeof(outString_), "bc 152 2\r\n");
+    epicsSnprintf(outString_, sizeof(outString_), "bc 152 2\n");
     status = writeReadMeter();
     
     return status;
@@ -991,7 +1059,7 @@ asynStatus drvBS_EM::setRange(epicsInt32 value)
 {
     asynStatus status;
     
-    epicsSnprintf(outString_, sizeof(outString_), "wr 3 %d\r\n", value);
+    epicsSnprintf(outString_, sizeof(outString_), "wr 3 %d\n", value);
     status = writeReadMeter();
     computeScaleFactor();
     return status;
@@ -1051,9 +1119,9 @@ asynStatus drvBS_EM::computeScaleFactor()
 
 	for (channel_idx = 0; channel_idx<4; channel_idx++)
 	  {
-	    epicsSnprintf(outString_, sizeof(outString_), "wr %i %i\r\n", 230+channel_idx, (int) (cal_slope_[channel_idx]*10000));
+	    epicsSnprintf(outString_, sizeof(outString_), "wr %i %i\n", 230+channel_idx, (int) (cal_slope_[channel_idx]*10000));
 	    writeReadMeter();	// XXX Doesn't test return value
-	    epicsSnprintf(outString_, sizeof(outString_), "wr %i %i\r\n", 234+channel_idx, (int) (cal_offset_[channel_idx]*10000));
+	    epicsSnprintf(outString_, sizeof(outString_), "wr %i %i\n", 234+channel_idx, (int) (cal_offset_[channel_idx]*10000));
 	    writeReadMeter();
 	  }
 	break;			// Leave this loop -- one time only

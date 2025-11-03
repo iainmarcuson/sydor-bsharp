@@ -45,6 +45,11 @@
 #define P_PIDIVString              "PID_ITOV"                    /* asynFloat64 */
 #define P_PIDExtTrigString         "PID_XTRIG"                   /* asynInt32 */
 #define P_PIDInhibitString         "PID_INHIBIT"                 /* asynInt32 */
+#define P_RawScaleString           "RAW_SCALE"                   /* asynInt32 */
+#define P_ClippingString           "CLIPPING"                    /* asynInt32 */
+#define P_RegNumString            "REGNUM"                      /* asynInt32 */
+#define P_RegValString             "REGVAL"                      /* asynInt32 */
+#define P_RegSetString             "REGSET"                      /* asynInt32 */
 
 typedef struct {
     int moduleID;
@@ -130,6 +135,11 @@ protected:
     int P_Fdbk_I2VScale;
     int P_Fdbk_ExtTrig;
     int P_Fdbk_PIDInhibit;
+    int P_RawScale;
+    int P_Clipping;
+    int P_RegNum;
+    int P_RegVal;
+    int P_RegSet;
     
     /* These are the methods we implement from quadEM */
     virtual asynStatus setAcquire(epicsInt32 value);
@@ -171,7 +181,8 @@ private:
     int num_cals_;			     /* Number of calibration values */
     double cal_slope_[4];			     /* The calculated slope */
     double cal_offset_[4];			     /* The calculated offset */
-
+    const double CLIP_PCT = 0.90;                    /* The percentage of full scale to warn at */
+    const double MAX_RAW = 1<<20;
     asynStatus findModule();
     asynStatus writeReadMeter();
     asynStatus getFirmwareVersion();
@@ -182,5 +193,7 @@ private:
     double raw_to_current(signed int raw_val);
     void calc_calibration();
     void parse_cal_file(FILE *cal_file);
+    void changeRegNum(int regNum);
+    void changeRegVal(int regVal);
 };
 

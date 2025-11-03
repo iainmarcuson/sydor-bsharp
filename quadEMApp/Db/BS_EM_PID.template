@@ -500,3 +500,70 @@ record(ai, "$(P)$(R)PID_IToV_RBV")
 	field(PREC, "3")
 }
 
+## Raw/Scale mode switch
+record(mbbo,"$(P)$(R)RawScale") {
+    field(DTYP, "asynInt32")
+    field(ZRVL,"0")
+    field(ZRST,"Scaled")
+    field(ONVL,"1")
+    field(ONST,"Raw")
+    field(VAL, "0")
+    field(OUT, "@asyn($(PORT) 0)RAW_SCALE")
+}
+
+record(mbbi,"$(P)$(R)RawScale_RBV") {
+    field(DTYP, "asynInt32")
+    field(ZRVL,"0")
+    field(ZRST,"Scaled")
+    field(ONVL,"1")
+    field(ONST,"Raw")
+    field(INP, "@asyn($(PORT) 0)RAW_SCALE")
+    field(SCAN, "I/O Intr")
+}
+
+# Clipping Indicator
+
+record(longout,"$(P)$(R)Clipping") {
+    field(DTYP, "asynInt32")
+    field(VAL, "0")
+    field(OUT, "@asyn($(PORT) 0)CLIPPING")
+}
+
+record(longin,"$(P)$(R)Clipping_RBV") {
+    field(DTYP, "asynInt32")
+    field(INP, "@asyn($(PORT) 0)CLIPPING")
+    field(SCAN, "I/O Intr")
+}
+
+# Register Control
+
+record(longout,"$(P)$(R)RegNum") {
+    field(DTYP, "asynInt32")
+    field(VAL, "0")
+    field(OUT, "@asyn($(PORT) 0)REGNUM")
+}
+
+record(longin,"$(P)$(R)RegNum_RBV") {
+    field(DTYP, "asynInt32")
+    field(INP, "@asyn($(PORT) 0)REGNUM")
+    field(SCAN, "I/O Intr")
+}
+
+record(longin,"$(P)$(R)RegVal_RBV") {
+    field(DTYP, "asynInt32")
+    field(INP, "@asyn($(PORT) 0)REGVAL")
+    field(SCAN, "I/O Intr")
+}
+
+record(longout,"$(P)$(R)RegSet") {
+    field(DTYP, "asynInt32")
+    field(VAL, "0")
+    field(OUT, "@asyn($(PORT) 0)REGSET")
+}
+
+record(longin,"$(P)$(R)RegSet_RBV") {
+    field(DTYP, "asynInt32")
+    field(VAL, "0")
+    field(INP, "@asyn($(PORT) 0)REGSET")
+    field(SCAN, "I/O Intr")
+}
