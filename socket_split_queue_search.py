@@ -7,7 +7,7 @@ import time
 import struct
 
 BSHARP_ADDR = '127.0.0.1';
-#BSHARP_ADDR  = '192.168.11.166';
+BSHARP_ADDR  = '192.168.11.166';
 
 packet_count = 0;
 CMD_LEN = 32;                  # Maximum length of command to try to filter out.  Actual max for a command is 25, but add a litle padding.
@@ -76,6 +76,10 @@ def bsharp_all_recv(in_bytes):
                 internal_log.append( str(log_len_inbytes) + ", " +  "RP, L42")
 
             return (RECV_PARTIAL, b'');
+
+        if len(in_bytes) < (delimit_idx+2+1):
+            return (RECV_PARTIAL, b'')
+        
         data_size = in_bytes[delimit_idx+1]*256+in_bytes[delimit_idx+2];
         #print("bb payload size: {}".format(data_size));
         ###

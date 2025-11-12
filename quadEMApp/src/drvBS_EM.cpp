@@ -33,7 +33,7 @@
 
 #define BROADCAST_TIMEOUT 0.2
 #define NSLS_EM_TIMEOUT   0.2
-#define BS_EM_CMD_TIMEOUT 7.5
+#define BS_EM_CMD_TIMEOUT 0.5
 
 #define BOND_MAX_I 0.005 // Maximum bond wire current
 
